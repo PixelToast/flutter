@@ -7,6 +7,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/rendering.dart';
 
 import 'box.dart';
 import 'debug_overflow_indicator.dart';
@@ -190,6 +191,30 @@ enum CrossAxisAlignment {
   baseline,
 }
 
+/// Signature for callbacks that report [RenderFlex] overflow errors to the console.
+///
+/// See also:
+///  * [FlexOverflowErrorDetails], which holds information about an overflow error.
+///  * [RenderFlex], the flex render object.
+typedef FlexOverflowErrorReporter = void Function(FlexOverflowErrorDetails data);
+
+/// Information gathered when a [RenderFlex] has overflowed.
+///
+/// See also:
+///  * [RenderFlex], the flex render object.
+class FlexOverflowErrorDetails extends OverflowErrorDetails {
+  /// Creates overflow details with the specified geometry and render object.
+  ///
+  /// The [overflow] field should not be null.
+  FlexOverflowErrorDetails({
+    RelativeRect overflow,
+    List<DiagnosticsNode> hints,
+  }) : super(
+    overflow: overflow,
+    hints: hints,
+  );
+}
+
 bool _startIsTopLeft(Axis direction, TextDirection textDirection, VerticalDirection verticalDirection) {
   assert(direction != null);
   // If the relevant value of textDirection or verticalDirection is null, this returns null too.
@@ -280,6 +305,7 @@ class RenderFlex extends RenderBox with ContainerRenderObjectMixin<RenderBox, Fl
     VerticalDirection verticalDirection = VerticalDirection.down,
     TextBaseline textBaseline,
     Clip clipBehavior = Clip.none,
+    this.overflowReporter,
   }) : assert(direction != null),
        assert(mainAxisAlignment != null),
        assert(mainAxisSize != null),
@@ -433,6 +459,20 @@ class RenderFlex extends RenderBox with ContainerRenderObjectMixin<RenderBox, Fl
       markNeedsLayout();
     }
   }
+
+  /// Called the first time children overflow the container, if not null.
+  ///
+  /// Useful if you want to add extra context to overflow error messages,
+  /// such as what child widget caused it.
+  ///
+  /// The default reporting behavior is to print a debug message to the console
+  /// with information relevant to debugging the render layer. This reporter
+  /// will only be called on the first occurrence of an overflow, or once after
+  /// [reassemble] is called.
+  // This is used iff there was an overflow during layout for the first time
+  // (since being reassembled), therefore we do not need to call markNeedsLayout
+  // when it changes.
+  FlexOverflowErrorReporter overflowReporter;
 
   bool get _debugHasNecessaryDirections {
     assert(direction != null);
@@ -1033,6 +1073,17 @@ class RenderFlex extends RenderBox with ContainerRenderObjectMixin<RenderBox, Fl
     if (_overflow is double && _hasOverflow)
       header += ' OVERFLOWING';
     return header;
+  }
+
+  @override
+  void debugReportOverflow(OverflowErrorDetails details) {
+    if (overflowReporter != null) {
+      overflowReporter(FlexOverflowErrorDetails(
+        overflow: details.overflow,
+      ));
+    } else {
+      super.debugReportOverflow(details);
+    }
   }
 
   @override

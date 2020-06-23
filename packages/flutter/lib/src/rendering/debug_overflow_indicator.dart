@@ -39,6 +39,34 @@ class _OverflowRegionData {
   final _OverflowSide side;
 }
 
+/// Signature for callbacks that report overflow errors to the console.
+///
+/// See also:
+///   * [OverflowErrorDetails], which holds information about an overflow error.
+///   * [DebugOverflowIndicatorMixin], which uses these callbacks.
+typedef OverflowErrorReporter = void Function(OverflowErrorDetails data);
+
+/// Information gathered when an overflow has been detected.
+///
+/// See also:
+///   * [DebugOverflowIndicatorMixin], which uses this data to report overflow errors.
+class OverflowErrorDetails {
+  /// Creates overflow details with the specified geometry and render object.
+  ///
+  /// The [overflow] field should not be null.
+  OverflowErrorDetails({
+    @required this.overflow,
+    this.hints,
+  }) : assert(overflow != null);
+
+  /// The overflow geometry, relative to the edges of [renderObject].
+  final RelativeRect overflow;
+
+  /// Additional information that is included in [FlutterErrorDetails.informationCollector]
+  /// by the [OverflowErrorReporter], or null if default hints should be used.
+  final List<DiagnosticsNode> hints;
+}
+
 /// An mixin indicator that is drawn when a [RenderObject] overflows its
 /// container.
 ///
@@ -47,8 +75,13 @@ class _OverflowRegionData {
 /// typically only shown in a debug build (where the call to
 /// [paintOverflowIndicator] is surrounded by an assert).
 ///
-/// This class will also print a debug message to the console when the container
-/// overflows. It will print on the first occurrence, and once after each time that
+/// Override [debugReportOverflow] to change how overflow errors are handled,
+/// this is useful if you want to add extra context to the error message, such
+/// as what child widget caused it.
+///
+/// The default reporting behavior is to print a debug message to the console
+/// with information relevant to debugging the render layer. The reporter will
+/// only be called on the first occurrence of an overflow, or once after
 /// [reassemble] is called.
 ///
 /// {@tool snippet}
@@ -105,8 +138,8 @@ mixin DebugOverflowIndicatorMixin on RenderObject {
     ..shader = ui.Gradient.linear(
       const Offset(0.0, 0.0),
       const Offset(10.0, 10.0),
-      <Color>[_black, _yellow, _yellow, _black],
-      <double>[0.25, 0.25, 0.75, 0.75],
+      const <Color>[_black, _yellow, _yellow, _black],
+      const <double>[0.25, 0.25, 0.75, 0.75],
       TileMode.repeated,
     );
   static final Paint _labelBackgroundPaint = Paint()..color = const Color(0xFFFFFFFF);
@@ -115,10 +148,6 @@ mixin DebugOverflowIndicatorMixin on RenderObject {
     _OverflowSide.values.length,
     TextPainter(textDirection: TextDirection.ltr), // This label is in English.
   );
-
-  // Set to true to trigger a debug message in the console upon
-  // the next paint call. Will be reset after each paint.
-  bool _overflowReportNeeded = true;
 
   String _formatPixels(double value) {
     assert(value > 0.0);
@@ -132,6 +161,78 @@ mixin DebugOverflowIndicatorMixin on RenderObject {
     }
     return pixels;
   }
+
+  /// Reports an overflow error to the console.
+  ///
+  /// Override this method to change how overflow errors are handled by the
+  /// [DebugOverflowIndicatorMixin] mixin.
+  ///
+  /// The default implementation is sufficient for diagnosing issues in the
+  /// render layer, however, it may lack useful context such as the exact widget
+  /// that caused the overflow.
+  void debugReportOverflow(OverflowErrorDetails details) {
+    final List<DiagnosticsNode> hints = details.hints ?? <DiagnosticsNode>[
+      ErrorDescription(
+        'The edge of the $runtimeType that is '
+        'overflowing has been marked in the rendering with a yellow and black '
+        'striped pattern. This is usually caused by the contents being too big '
+        'for the $runtimeType.'
+      ),
+      ErrorHint(
+        'This is considered an error condition because it indicates that there '
+        'is content that cannot be seen. If the content is legitimately bigger '
+        'than the available space, consider clipping it with a ClipRect widget '
+        'before putting it in the $runtimeType, or using a scrollable '
+        'container, like a ListView.'
+      ),
+    ];
+
+    final List<String> overflows = <String>[
+      if (details.overflow.left > 0.0) '${_formatPixels(details.overflow.left)} pixels on the left',
+      if (details.overflow.top > 0.0) '${_formatPixels(details.overflow.top)} pixels on the top',
+      if (details.overflow.bottom > 0.0) '${_formatPixels(details.overflow.bottom)} pixels on the bottom',
+      if (details.overflow.right > 0.0) '${_formatPixels(details.overflow.right)} pixels on the right',
+    ];
+
+    String overflowText = '';
+    assert(overflows.isNotEmpty, "Somehow $runtimeType didn't actually overflow like it thought it did.");
+    switch (overflows.length) {
+      case 1:
+        overflowText = overflows.first;
+        break;
+      case 2:
+        overflowText = '${overflows.first} and ${overflows.last}';
+        break;
+      default:
+        overflows[overflows.length - 1] = 'and ${overflows[overflows.length - 1]}';
+        overflowText = overflows.join(', ');
+    }
+
+    // TODO(jacobr): add the overflows in pixels as structured data so they can
+    // be visualized in debugging tools.
+    FlutterError.reportError(
+      FlutterErrorDetailsForRendering(
+        exception: FlutterError('A $runtimeType overflowed by $overflowText.'),
+        library: 'rendering library',
+        context: ErrorDescription('during layout'),
+        renderObject: this,
+        informationCollector: () sync* {
+          if (debugCreator != null)
+            yield DiagnosticsDebugCreator(debugCreator);
+          yield* hints;
+          yield describeForError('The specific $runtimeType in question is');
+          // TODO(jacobr): this line is ascii art that it would be nice to
+          // handle a little more generically in GUI debugging clients in the
+          // future.
+          yield DiagnosticsNode.message('◢◤' * (FlutterError.wrapWidth ~/ 2), allowWrap: false);
+        },
+      ),
+    );
+  }
+
+  // Set to true to trigger a debug message in the console upon
+  // the next paint call. Will be reset after each paint.
+  bool _overflowReportNeeded = true;
 
   List<_OverflowRegionData> _calculateOverflowRegions(RelativeRect overflow, Rect containerRect) {
     final List<_OverflowRegionData> regions = <_OverflowRegionData>[];
@@ -201,66 +302,6 @@ mixin DebugOverflowIndicatorMixin on RenderObject {
     return regions;
   }
 
-  void _reportOverflow(RelativeRect overflow, List<DiagnosticsNode> overflowHints) {
-    overflowHints ??= <DiagnosticsNode>[];
-    if (overflowHints.isEmpty) {
-      overflowHints.add(ErrorDescription(
-        'The edge of the $runtimeType that is '
-        'overflowing has been marked in the rendering with a yellow and black '
-        'striped pattern. This is usually caused by the contents being too big '
-        'for the $runtimeType.'
-      ));
-      overflowHints.add(ErrorHint(
-        'This is considered an error condition because it indicates that there '
-        'is content that cannot be seen. If the content is legitimately bigger '
-        'than the available space, consider clipping it with a ClipRect widget '
-        'before putting it in the $runtimeType, or using a scrollable '
-        'container, like a ListView.'
-      ));
-    }
-
-    final List<String> overflows = <String>[
-      if (overflow.left > 0.0) '${_formatPixels(overflow.left)} pixels on the left',
-      if (overflow.top > 0.0) '${_formatPixels(overflow.top)} pixels on the top',
-      if (overflow.bottom > 0.0) '${_formatPixels(overflow.bottom)} pixels on the bottom',
-      if (overflow.right > 0.0) '${_formatPixels(overflow.right)} pixels on the right',
-    ];
-    String overflowText = '';
-    assert(overflows.isNotEmpty,
-        "Somehow $runtimeType didn't actually overflow like it thought it did.");
-    switch (overflows.length) {
-      case 1:
-        overflowText = overflows.first;
-        break;
-      case 2:
-        overflowText = '${overflows.first} and ${overflows.last}';
-        break;
-      default:
-        overflows[overflows.length - 1] = 'and ${overflows[overflows.length - 1]}';
-        overflowText = overflows.join(', ');
-    }
-    // TODO(jacobr): add the overflows in pixels as structured data so they can
-    // be visualized in debugging tools.
-    FlutterError.reportError(
-      FlutterErrorDetailsForRendering(
-        exception: FlutterError('A $runtimeType overflowed by $overflowText.'),
-        library: 'rendering library',
-        context: ErrorDescription('during layout'),
-        renderObject: this,
-        informationCollector: () sync* {
-          if (debugCreator != null)
-            yield DiagnosticsDebugCreator(debugCreator);
-          yield* overflowHints;
-          yield describeForError('The specific $runtimeType in question is');
-          // TODO(jacobr): this line is ascii art that it would be nice to
-          // handle a little more generically in GUI debugging clients in the
-          // future.
-          yield DiagnosticsNode.message('◢◤' * (FlutterError.wrapWidth ~/ 2), allowWrap: false);
-        },
-      ),
-    );
-  }
-
   /// To be called when the overflow indicators should be painted.
   ///
   /// Typically only called if there is an overflow, and only from within a
@@ -308,7 +349,10 @@ mixin DebugOverflowIndicatorMixin on RenderObject {
 
     if (_overflowReportNeeded) {
       _overflowReportNeeded = false;
-      _reportOverflow(overflow, overflowHints);
+      debugReportOverflow(OverflowErrorDetails(
+        overflow: overflow,
+        hints: overflowHints,
+      ));
     }
   }
 

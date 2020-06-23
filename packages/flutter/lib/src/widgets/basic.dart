@@ -4004,6 +4004,7 @@ class Flex extends MultiChildRenderObjectWidget {
       verticalDirection: verticalDirection,
       textBaseline: textBaseline,
       clipBehavior: clipBehavior,
+      overflowReporter: (FlexOverflowErrorDetails details) => debugReportOverflow(context, details),
     );
   }
 
@@ -4018,6 +4019,20 @@ class Flex extends MultiChildRenderObjectWidget {
       ..verticalDirection = verticalDirection
       ..textBaseline = textBaseline
       ..clipBehavior = clipBehavior;
+  }
+
+  /// Reports an overflow error to the console.
+  void debugReportOverflow(BuildContext context, FlexOverflowErrorDetails details) {
+    FlutterError.reportError(FlutterErrorDetails(
+      exception: FlutterError('A $runtimeType widget overflowed. ${context.hashCode}'),
+      library: 'widgets library',
+      context: ErrorDescription('during layout'),
+      informationCollector: () sync* {
+        if (details.hints != null)
+          yield* details.hints;
+        yield DiagnosticsNode.message('◢◤' * (FlutterError.wrapWidth ~/ 2), allowWrap: false);
+      },
+    ));
   }
 
   @override

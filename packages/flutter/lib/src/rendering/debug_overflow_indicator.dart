@@ -13,6 +13,19 @@ import 'package:flutter/foundation.dart';
 import 'object.dart';
 import 'stack.dart';
 
+String _formatPixels(double value) {
+  assert(value > 0.0);
+  String pixels;
+  if (value >= 10.0) {
+    pixels = value.toStringAsFixed(0);
+  } else if (value > 1.0) {
+    pixels = value.toStringAsFixed(1);
+  } else {
+    pixels = value.toStringAsPrecision(3);
+  }
+  return pixels;
+}
+
 // Describes which side the region data overflows on.
 enum _OverflowSide {
   left,
@@ -62,9 +75,38 @@ class OverflowErrorDetails {
   /// The overflow geometry, relative to the edges of [renderObject].
   final RelativeRect overflow;
 
-  /// Additional information that is included in [FlutterErrorDetails.informationCollector]
+  /// Additional information that may be included in [FlutterErrorDetails.informationCollector]
   /// by the [OverflowErrorReporter], or null if default hints should be used.
   final List<DiagnosticsNode> hints;
+
+  /// Creates a human readable description of how far [overflow] extends in each
+  /// direction, for use in error messages.
+  ///
+  /// For example, if [overflow] is `RelativeRect.fromLTRB(0.0, -5,0, 20.0, 30.0)`,
+  /// this method would return "30 pixels on the bottom and 20 pixels on the right".
+  String describeOverflow() {
+    final List<String> overflows = <String>[
+      if (overflow.left > 0.0) '${_formatPixels(overflow.left)} pixels on the left',
+      if (overflow.top > 0.0) '${_formatPixels(overflow.top)} pixels on the top',
+      if (overflow.bottom > 0.0) '${_formatPixels(overflow.bottom)} pixels on the bottom',
+      if (overflow.right > 0.0) '${_formatPixels(overflow.right)} pixels on the right',
+    ];
+
+    String description = '';
+    assert(overflows.isNotEmpty, 'OverflowErrorDetails was given an overflow RelativeRect that does not overflow');
+    switch (overflows.length) {
+      case 1:
+        description = overflows.first;
+        break;
+      case 2:
+        description = '${overflows.first} and ${overflows.last}';
+        break;
+      default:
+        overflows[overflows.length - 1] = 'and ${overflows[overflows.length - 1]}';
+        description = overflows.join(', ');
+    }
+    return description;
+  }
 }
 
 /// An mixin indicator that is drawn when a [RenderObject] overflows its
@@ -80,7 +122,7 @@ class OverflowErrorDetails {
 /// as what child widget caused it.
 ///
 /// The default reporting behavior is to print a debug message to the console
-/// with information relevant to debugging the render layer. The reporter will
+/// with information relevant to debugging the render object. The reporter will
 /// only be called on the first occurrence of an overflow, or once after
 /// [reassemble] is called.
 ///
@@ -149,19 +191,6 @@ mixin DebugOverflowIndicatorMixin on RenderObject {
     TextPainter(textDirection: TextDirection.ltr), // This label is in English.
   );
 
-  String _formatPixels(double value) {
-    assert(value > 0.0);
-    String pixels;
-    if (value > 10.0) {
-      pixels = value.toStringAsFixed(0);
-    } else if (value > 1.0) {
-      pixels = value.toStringAsFixed(1);
-    } else {
-      pixels = value.toStringAsPrecision(3);
-    }
-    return pixels;
-  }
-
   /// Reports an overflow error to the console.
   ///
   /// Override this method to change how overflow errors are handled by the
@@ -187,32 +216,11 @@ mixin DebugOverflowIndicatorMixin on RenderObject {
       ),
     ];
 
-    final List<String> overflows = <String>[
-      if (details.overflow.left > 0.0) '${_formatPixels(details.overflow.left)} pixels on the left',
-      if (details.overflow.top > 0.0) '${_formatPixels(details.overflow.top)} pixels on the top',
-      if (details.overflow.bottom > 0.0) '${_formatPixels(details.overflow.bottom)} pixels on the bottom',
-      if (details.overflow.right > 0.0) '${_formatPixels(details.overflow.right)} pixels on the right',
-    ];
-
-    String overflowText = '';
-    assert(overflows.isNotEmpty, "Somehow $runtimeType didn't actually overflow like it thought it did.");
-    switch (overflows.length) {
-      case 1:
-        overflowText = overflows.first;
-        break;
-      case 2:
-        overflowText = '${overflows.first} and ${overflows.last}';
-        break;
-      default:
-        overflows[overflows.length - 1] = 'and ${overflows[overflows.length - 1]}';
-        overflowText = overflows.join(', ');
-    }
-
     // TODO(jacobr): add the overflows in pixels as structured data so they can
     // be visualized in debugging tools.
     FlutterError.reportError(
       FlutterErrorDetailsForRendering(
-        exception: FlutterError('A $runtimeType overflowed by $overflowText.'),
+        exception: FlutterError('A $runtimeType overflowed by ${details.describeOverflow()}.'),
         library: 'rendering library',
         context: ErrorDescription('during layout'),
         renderObject: this,

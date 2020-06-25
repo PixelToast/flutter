@@ -3995,7 +3995,7 @@ class Flex extends MultiChildRenderObjectWidget {
 
   @override
   RenderFlex createRenderObject(BuildContext context) {
-    return RenderFlex(
+    final RenderFlex renderObject = RenderFlex(
       direction: direction,
       mainAxisAlignment: mainAxisAlignment,
       mainAxisSize: mainAxisSize,
@@ -4004,8 +4004,14 @@ class Flex extends MultiChildRenderObjectWidget {
       verticalDirection: verticalDirection,
       textBaseline: textBaseline,
       clipBehavior: clipBehavior,
-      overflowReporter: (FlexOverflowErrorDetails details) => debugReportOverflow(context, details),
     );
+    assert(() {
+      renderObject.overflowReporter = (FlexOverflowErrorDetails details) {
+        debugReportOverflow(context, renderObject, details);
+      };
+      return true;
+    }());
+    return renderObject;
   }
 
   @override
@@ -4022,14 +4028,38 @@ class Flex extends MultiChildRenderObjectWidget {
   }
 
   /// Reports an overflow error to the console.
-  void debugReportOverflow(BuildContext context, FlexOverflowErrorDetails details) {
+  void debugReportOverflow(
+    BuildContext context,
+    covariant RenderFlex renderObject,
+    covariant FlexOverflowErrorDetails details,
+  ) {
+    final String widgetType = '$runtimeType';
     FlutterError.reportError(FlutterErrorDetails(
-      exception: FlutterError('A $runtimeType widget overflowed. ${context.hashCode}'),
+      exception: FlutterError.fromParts(<DiagnosticsNode>[
+        ErrorSummary('A $widgetType widget overflowed by ${details.describeOverflow()}.'),
+      ]),
       library: 'widgets library',
       context: ErrorDescription('during layout'),
       informationCollector: () sync* {
-        if (details.hints != null)
-          yield* details.hints;
+        yield ErrorDescription(
+          'The edge of the $widgetType that is overflowing has been marked '
+          'in the rendering with a yellow and black striped pattern. This is '
+          'usually caused by the contents being too big for the $widgetType.'
+        );
+        yield ErrorSpacer();
+        yield ErrorHint(
+          'Consider applying a flex factor (e.g. using an Expanded widget) to '
+          'force the children of the $widgetType to fit within the available '
+          'space instead of being sized to their natural size.'
+        );
+        yield ErrorSpacer();
+        yield ErrorHint(
+          'This is considered an error condition because it indicates that there '
+          'is content that cannot be seen. If the content is legitimately bigger '
+          'than the available space, consider clipping it with a ClipRect widget '
+          'before putting it in the flex, or using a scrollable container rather '
+          'than a $widgetType, like a ListView.'
+        );
         yield DiagnosticsNode.message('◢◤' * (FlutterError.wrapWidth ~/ 2), allowWrap: false);
       },
     ));

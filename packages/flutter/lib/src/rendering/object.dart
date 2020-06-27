@@ -3903,8 +3903,10 @@ class _SemanticsGeometry {
 /// A class that creates [DiagnosticsNode] by wrapping [RenderObject.debugCreator].
 ///
 /// Attach a [DiagnosticsDebugCreator] into [FlutterErrorDetails.informationCollector]
-/// when a [RenderObject.debugCreator] is available. This will lead to improved
-/// error message.
+/// when a [RenderObject.debugCreator] is available.
+///
+/// Under a [WidgetsBinding], this node will be transformed into a description
+/// of where the widget or element was created.
 class DiagnosticsDebugCreator extends DiagnosticsProperty<Object> {
   /// Create a [DiagnosticsProperty] with its [value] initialized to input
   /// [RenderObject.debugCreator].

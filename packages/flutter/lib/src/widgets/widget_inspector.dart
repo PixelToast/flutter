@@ -1903,6 +1903,42 @@ mixin WidgetInspectorService {
     _clearStats();
     _resetErrorCount();
   }
+
+  /// Returns a description of the where [widget] was created, with an optional
+  /// [name] label.
+  ///
+  /// If widget inspection is not available, or no creation location was found
+  /// for [widget], this method returns a hidden property.
+  ///
+  /// If [compact] is true, this method returns a single line [DiagnosticsProperty]
+  /// containing the name and location. Otherwise, the result is formatted in a
+  /// [DiagnosticsBlock].
+  static DiagnosticsNode describeWidgetLocation(
+    Widget widget, {
+    String name,
+    bool compact = true,
+  }) {
+    DiagnosticsNode description;
+    assert(() {
+      if (WidgetInspectorService.instance.isWidgetCreationTracked() && _hasLocalCreationLocation(widget)) {
+        final String location = _describeCreationLocation(widget);
+        if (compact) {
+          description = DiagnosticsProperty<String>(name, location);
+        } else {
+          description = DiagnosticsBlock(
+            name: name,
+            value: location,
+          );
+        }
+      }
+      return true;
+    }());
+    if (description != null) {
+      return description;
+    } else {
+      return DiagnosticsProperty<Widget>(name, widget, level: DiagnosticLevel.hidden);
+    }
+  }
 }
 
 /// Accumulator for a count associated with a specific source location.
@@ -2826,7 +2862,7 @@ Iterable<DiagnosticsNode> _describeRelevantUserCode(Element element) {
   bool processElement(Element target) {
     // TODO(chunhtai): should print out all the widgets that are about to cross
     // package boundaries.
-    if (_isLocalCreationLocation(target)) {
+    if (_hasLocalCreationLocation(target)) {
       nodes.add(
         DiagnosticsBlock(
           name: 'The relevant error-causing widget was',
@@ -2851,7 +2887,7 @@ Iterable<DiagnosticsNode> _describeRelevantUserCode(Element element) {
 ///
 /// Currently is local creation locations are only available for
 /// [Widget] and [Element].
-bool _isLocalCreationLocation(Object object) {
+bool _hasLocalCreationLocation(Object object) {
   final _Location location = _getCreationLocation(object);
   if (location == null)
     return false;

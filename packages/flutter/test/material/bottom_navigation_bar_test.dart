@@ -11,8 +11,6 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vector_math/vector_math_64.dart' show Vector3;
 
-import '../rendering/mock_canvas.dart';
-
 void main() {
   testWidgets('BottomNavigationBar callback test', (WidgetTester tester) async {
     int mutatedIndex;

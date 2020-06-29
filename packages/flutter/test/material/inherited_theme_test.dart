@@ -7,8 +7,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../rendering/mock_canvas.dart';
-
 void main() {
   testWidgets('Theme.wrap()', (WidgetTester tester) async {
     const Color primaryColor = Color(0xFF00FF00);

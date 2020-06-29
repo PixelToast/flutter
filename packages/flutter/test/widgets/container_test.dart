@@ -9,8 +9,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/widgets.dart';
 import 'package:mockito/mockito.dart';
 
-import '../rendering/mock_canvas.dart';
-
 void main() {
   testWidgets('Container control test', (WidgetTester tester) async {
     final Container container = Container(

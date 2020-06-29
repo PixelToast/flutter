@@ -7,8 +7,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
 
-import '../rendering/mock_canvas.dart';
-
 Widget wrap({ Widget child }) {
   return MediaQuery(
     data: const MediaQueryData(),

@@ -12,7 +12,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../painting/image_data.dart';
 import '../painting/mocks_for_image_cache.dart';
-import '../rendering/mock_canvas.dart';
 import 'test_border.dart' show TestBorder;
 
 Future<void> main() async {

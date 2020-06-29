@@ -9,8 +9,6 @@ import 'package:flutter/painting.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../rendering/mock_canvas.dart';
-
 void main() {
   test('TimePickerThemeData copyWith, ==, hashCode basics', () {
     expect(const TimePickerThemeData(), const TimePickerThemeData().copyWith());

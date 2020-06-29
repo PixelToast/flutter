@@ -10,8 +10,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'recording_canvas.dart';
-
 /// Matches objects or functions that paint a display list that matches the
 /// canvas calls described by the pattern.
 ///

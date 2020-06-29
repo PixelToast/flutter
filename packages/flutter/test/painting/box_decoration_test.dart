@@ -7,8 +7,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/painting.dart';
 
-import '../rendering/mock_canvas.dart';
-
 void main() {
   test('BoxDecoration with BorderRadiusDirectional', () {
     const BoxDecoration decoration = BoxDecoration(

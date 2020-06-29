@@ -6,10 +6,10 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter_test/flutter_test.dart' show paints;
 import 'package:vector_math/vector_math_64.dart';
 
 import '../flutter_test_alternative.dart';
-import 'mock_canvas.dart';
 import 'rendering_tester.dart';
 
 void main() {

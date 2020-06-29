@@ -11,8 +11,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
-import '../rendering/mock_canvas.dart';
-
 const List<String> menuItems = <String>['one', 'two', 'three', 'four'];
 final ValueChanged<String> onChanged = (_) { };
 final Type dropdownButtonType = DropdownButton<String>(

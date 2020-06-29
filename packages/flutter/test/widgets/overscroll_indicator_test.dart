@@ -10,8 +10,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter/rendering.dart';
 
-import '../rendering/mock_canvas.dart';
-
 final Matcher doesNotOverscroll = isNot(paints..circle());
 
 Future<void> slowDrag(WidgetTester tester, Offset start, Offset offset) async {

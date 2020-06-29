@@ -7,8 +7,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/widgets.dart';
 
-import '../rendering/mock_canvas.dart';
-
 class TestSliverChildListDelegate extends SliverChildListDelegate {
   TestSliverChildListDelegate(List<Widget> children) : super(children);
 

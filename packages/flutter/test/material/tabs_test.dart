@@ -11,8 +11,6 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/physics.dart';
 
-import '../rendering/mock_canvas.dart';
-import '../rendering/recording_canvas.dart';
 import '../widgets/semantics_tester.dart';
 
 Widget boilerplate({ Widget child, TextDirection textDirection = TextDirection.ltr }) {

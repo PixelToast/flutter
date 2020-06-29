@@ -7,8 +7,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../rendering/mock_canvas.dart';
-
 const Color _kScrollbarColor = Color(0x59000000);
 
 // The `y` offset has to be larger than `ScrollDragController._bigThresholdBreakDistance`

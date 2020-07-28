@@ -42,6 +42,7 @@ class ButtonBarThemeData with Diagnosticable {
     this.buttonAlignedDropdown,
     this.layoutBehavior,
     this.overflowDirection,
+    this.textDirection,
   }) : assert(buttonMinWidth == null || buttonMinWidth >= 0.0),
        assert(buttonHeight == null || buttonHeight >= 0.0);
 
@@ -113,6 +114,13 @@ class ButtonBarThemeData with Diagnosticable {
   /// bottom and "ends" at the top.
   final VerticalDirection overflowDirection;
 
+  /// Determines the order to lay children out horizontally in a [ButtonBar] and
+  /// how to interpret `start` and `end` alignments in the horizontal direction.
+  ///
+  /// See also:
+  ///   * [Row], which has similar text direction behavior.
+  final TextDirection textDirection;
+
   /// Creates a copy of this object but with the given fields replaced with the
   /// new values.
   ButtonBarThemeData copyWith({
@@ -125,6 +133,7 @@ class ButtonBarThemeData with Diagnosticable {
     bool buttonAlignedDropdown,
     ButtonBarLayoutBehavior layoutBehavior,
     VerticalDirection overflowDirection,
+    TextDirection textDirection,
   }) {
     return ButtonBarThemeData(
       alignment: alignment ?? this.alignment,
@@ -136,6 +145,7 @@ class ButtonBarThemeData with Diagnosticable {
       buttonAlignedDropdown: buttonAlignedDropdown ?? this.buttonAlignedDropdown,
       layoutBehavior: layoutBehavior ?? this.layoutBehavior,
       overflowDirection: overflowDirection ?? this.overflowDirection,
+      textDirection: textDirection ?? this.textDirection,
     );
   }
 
@@ -158,6 +168,7 @@ class ButtonBarThemeData with Diagnosticable {
       buttonAlignedDropdown: t < 0.5 ? a.buttonAlignedDropdown : b.buttonAlignedDropdown,
       layoutBehavior: t < 0.5 ? a.layoutBehavior : b.layoutBehavior,
       overflowDirection: t < 0.5 ? a.overflowDirection : b.overflowDirection,
+      textDirection: t < 0.5 ? a.textDirection : b.textDirection,
     );
   }
 
@@ -173,6 +184,7 @@ class ButtonBarThemeData with Diagnosticable {
       buttonAlignedDropdown,
       layoutBehavior,
       overflowDirection,
+      textDirection,
     );
   }
 
@@ -191,7 +203,8 @@ class ButtonBarThemeData with Diagnosticable {
         && other.buttonPadding == buttonPadding
         && other.buttonAlignedDropdown == buttonAlignedDropdown
         && other.layoutBehavior == layoutBehavior
-        && other.overflowDirection == overflowDirection;
+        && other.overflowDirection == overflowDirection
+        && other.textDirection == textDirection;
   }
 
   @override
@@ -210,6 +223,7 @@ class ButtonBarThemeData with Diagnosticable {
         defaultValue: null));
     properties.add(DiagnosticsProperty<ButtonBarLayoutBehavior>('layoutBehavior', layoutBehavior, defaultValue: null));
     properties.add(DiagnosticsProperty<VerticalDirection>('overflowDirection', overflowDirection, defaultValue: null));
+    properties.add(DiagnosticsProperty<TextDirection>('textDirection', textDirection, defaultValue: null));
   }
 }
 

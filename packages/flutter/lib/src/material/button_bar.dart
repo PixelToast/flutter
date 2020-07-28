@@ -212,7 +212,7 @@ class ButtonBar extends StatelessWidget {
           );
         }).toList(),
         textDirection: textDirection ?? barTheme.textDirection ?? Directionality.of(context),
-        mainAxisAlignment: alignment ?? barTheme.alignment ?? MainAxisAlignment.end,
+        alignment: alignment ?? barTheme.alignment ?? MainAxisAlignment.end,
         mainAxisSize: mainAxisSize ?? barTheme.mainAxisSize ?? MainAxisSize.max,
         overflowDirection: overflowDirection ?? barTheme.overflowDirection ?? VerticalDirection.down,
         overflowButtonSpacing: overflowButtonSpacing,
@@ -260,7 +260,7 @@ class _ButtonBarRow extends MultiChildRenderObjectWidget {
   _ButtonBarRow({
     List<Widget> children,
     this.mainAxisSize = MainAxisSize.max,
-    this.mainAxisAlignment = MainAxisAlignment.end,
+    this.alignment = MainAxisAlignment.end,
     this.overflowDirection = VerticalDirection.down,
     this.overflowButtonSpacing,
     @required this.textDirection,
@@ -268,14 +268,14 @@ class _ButtonBarRow extends MultiChildRenderObjectWidget {
 
   final TextDirection textDirection;
   final MainAxisSize mainAxisSize;
-  final MainAxisAlignment mainAxisAlignment;
+  final MainAxisAlignment alignment;
   final VerticalDirection overflowDirection;
   final double overflowButtonSpacing;
 
   @override
   _RenderButtonBarRow createRenderObject(BuildContext context) {
     return _RenderButtonBarRow(
-      mainAxisAlignment: mainAxisAlignment,
+      alignment: alignment,
       mainAxisSize: mainAxisSize,
       overflowDirection: overflowDirection,
       overflowButtonSpacing: overflowButtonSpacing,
@@ -286,7 +286,7 @@ class _ButtonBarRow extends MultiChildRenderObjectWidget {
   @override
   void updateRenderObject(BuildContext context, covariant _RenderButtonBarRow renderObject) {
     renderObject
-      ..mainAxisAlignment = mainAxisAlignment
+      ..alignment = alignment
       ..mainAxisSize = mainAxisSize
       ..overflowDirection = overflowDirection
       ..overflowButtonSpacing = overflowButtonSpacing
@@ -321,31 +321,31 @@ class _RenderButtonBarRow extends RenderBox with
   _RenderButtonBarRow({
     List<RenderBox> children,
     @required TextDirection textDirection,
-    MainAxisAlignment mainAxisAlignment = MainAxisAlignment.end,
+    MainAxisAlignment alignment = MainAxisAlignment.end,
     MainAxisSize mainAxisSize = MainAxisSize.max,
     VerticalDirection overflowDirection = VerticalDirection.down,
     double overflowButtonSpacing,
     Clip clipBehavior = Clip.hardEdge,
   }) : assert(textDirection != null),
-       assert(mainAxisAlignment != null),
+       assert(alignment != null),
        assert(mainAxisSize != null),
        assert(overflowDirection != null),
        assert(overflowButtonSpacing == null || overflowButtonSpacing >= 0),
        assert(clipBehavior != null),
        _textDirection = textDirection,
-       _mainAxisAlignment = mainAxisAlignment,
+       _alignment = alignment,
        _mainAxisSize = mainAxisSize,
        _overflowDirection = overflowDirection,
        _overflowButtonSpacing = overflowButtonSpacing {
     addAll(children);
   }
 
-  MainAxisAlignment get mainAxisAlignment => _mainAxisAlignment;
-  MainAxisAlignment _mainAxisAlignment;
-  set mainAxisAlignment(MainAxisAlignment alignment) {
+  MainAxisAlignment get alignment => _alignment;
+  MainAxisAlignment _alignment;
+  set alignment(MainAxisAlignment alignment) {
     assert(alignment != null);
-    if (alignment != _mainAxisAlignment) {
-      _mainAxisAlignment = alignment;
+    if (alignment != _alignment) {
+      _alignment = alignment;
       markNeedsLayout();
     }
   }
@@ -454,7 +454,7 @@ class _RenderButtonBarRow extends RenderBox with
         // alignment for a row. For [MainAxisAlignment.spaceAround],
         // [MainAxisAlignment.spaceBetween] and [MainAxisAlignment.spaceEvenly]
         // cases, use [MainAxisAlignment.start].
-        switch (mainAxisAlignment) {
+        switch (alignment) {
           case MainAxisAlignment.center:
             final double midpoint = (maxWidth - child.size.width) / 2.0;
             childParentData.offset = Offset(midpoint, currentHeight);
@@ -554,7 +554,7 @@ class _RenderButtonBarRow extends RenderBox with
       double leadingSpace;
       double betweenSpace;
 
-      switch (_mainAxisAlignment) {
+      switch (alignment) {
         case MainAxisAlignment.start:
           leadingSpace = 0.0;
           betweenSpace = 0.0;
@@ -582,13 +582,13 @@ class _RenderButtonBarRow extends RenderBox with
       }
 
       // Position children according to the mainAxisAlignment.
-      double childMainPosition = flipMainAxis ? maxWidth - leadingSpace : leadingSpace;
+      double childMainPosition = flipMainAxis ? mainSize - leadingSpace : leadingSpace;
       child = firstChild;
       while (child != null) {
         final _ButtonBarParentData childParentData = child.parentData as _ButtonBarParentData;
 
         if (flipMainAxis) {
-          childMainPosition -= child.size.width;
+          childMainPosition -= childParentData.intrinsicWidth;
         }
 
         // Vertically center the child.
@@ -597,7 +597,7 @@ class _RenderButtonBarRow extends RenderBox with
         if (flipMainAxis) {
           childMainPosition -= betweenSpace;
         } else {
-          childMainPosition += child.size.width + betweenSpace;
+          childMainPosition += childParentData.intrinsicWidth + betweenSpace;
         }
 
         child = childParentData.nextSibling;
@@ -651,7 +651,7 @@ class _RenderButtonBarRow extends RenderBox with
   @override
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
-    properties.add(EnumProperty<MainAxisAlignment>('mainAxisAlignment', mainAxisAlignment, defaultValue: MainAxisAlignment.end));
+    properties.add(EnumProperty<MainAxisAlignment>('alignment', alignment, defaultValue: MainAxisAlignment.end));
     properties.add(EnumProperty<MainAxisSize>('mainAxisSize', mainAxisSize, defaultValue: MainAxisSize.max));
     properties.add(EnumProperty<VerticalDirection>('overflowDirection', overflowDirection, defaultValue: VerticalDirection.down));
     properties.add(DoubleProperty('overflowButtonSpacing', overflowButtonSpacing, defaultValue: null));

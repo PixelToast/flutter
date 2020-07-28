@@ -8,6 +8,158 @@ import 'package:flutter/material.dart';
 import 'package:flutter/src/material/button_theme.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+// This widget imitates what a ButtonBar should look like given a set of child
+// sizes, placing both the Flex and ButtonBar layouts in a column so their
+// dimensions can be compared.
+class FlexTestFrame extends StatelessWidget {
+  FlexTestFrame({
+    @required this.childSizes,
+    @required this.alignment,
+    @required this.mainAxisSize,
+    @required this.textDirection,
+    @required this.layoutBehavior,
+    @required this.overflowDirection,
+    @required this.overflowButtonSpacing,
+  }) : flexKey = GlobalKey(),
+       flexChildKeys = List<GlobalKey>.generate(childSizes.length, (int index) => GlobalKey()),
+       barKey = GlobalKey(),
+       barChildKeys = List<GlobalKey>.generate(childSizes.length, (int index) => GlobalKey());
+
+  final List<Size> childSizes;
+  final MainAxisAlignment alignment;
+  final MainAxisSize mainAxisSize;
+  final TextDirection textDirection;
+  final ButtonBarLayoutBehavior layoutBehavior;
+  final VerticalDirection overflowDirection;
+  final double overflowButtonSpacing;
+
+  final GlobalKey flexKey;
+  final List<GlobalKey> flexChildKeys;
+  final GlobalKey barKey;
+  final List<GlobalKey> barChildKeys;
+
+  CrossAxisAlignment get crossAlignment {
+    switch (alignment) {
+      case MainAxisAlignment.center:
+        return CrossAxisAlignment.center;
+        break;
+      case MainAxisAlignment.end:
+        return CrossAxisAlignment.end;
+        break;
+      case MainAxisAlignment.spaceAround:
+      case MainAxisAlignment.spaceBetween:
+      case MainAxisAlignment.spaceEvenly:
+      case MainAxisAlignment.start:
+        return CrossAxisAlignment.start;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const double defaultButtonPadding = 16.0;
+    const double paddingUnit = defaultButtonPadding / 4.0;
+    const EdgeInsets childPadding = EdgeInsets.symmetric(horizontal: paddingUnit);
+    const double innerWidth = 800.0 - paddingUnit * 2;
+
+    double expectedWidth = 0.0;
+    for (final Size size in childSizes) {
+      expectedWidth += size.width + paddingUnit * 2;
+    }
+
+    Widget flexChild;
+
+    if (expectedWidth > innerWidth) {
+      flexChild = SizedBox(
+        width: double.infinity,
+        child: Column(
+          crossAxisAlignment: crossAlignment,
+          verticalDirection: overflowDirection,
+          textDirection: textDirection,
+          children: <Widget>[
+            for (int i = 0; i < childSizes.length; i += 1) ...[
+              if (i != 0) SizedBox(height: overflowButtonSpacing),
+              Padding(
+                padding: childPadding,
+                child: SizedBox.fromSize(
+                  key: flexChildKeys[i],
+                  size: childSizes[i],
+                ),
+              ),
+            ],
+          ],
+        ),
+      );
+    } else {
+      flexChild = Row(
+        mainAxisAlignment: alignment,
+        mainAxisSize: mainAxisSize,
+        textDirection: textDirection,
+        children: <Widget>[
+          for (int i = 0; i < childSizes.length; i += 1) Padding(
+            child: SizedBox.fromSize(
+              key: flexChildKeys[i],
+              size: childSizes[i],
+            ),
+            padding: childPadding,
+          ),
+        ],
+      );
+    }
+
+    switch (layoutBehavior) {
+      case ButtonBarLayoutBehavior.padded:
+        flexChild = Padding(
+          key: flexKey,
+          padding: const EdgeInsets.symmetric(
+            vertical: 2.0 * paddingUnit,
+            horizontal: paddingUnit,
+          ),
+          child: flexChild,
+        );
+        break;
+      case ButtonBarLayoutBehavior.constrained:
+        flexChild = Container(
+          key: flexKey,
+          padding: const EdgeInsets.symmetric(horizontal: paddingUnit),
+          constraints: const BoxConstraints(minHeight: 52.0),
+          alignment: Alignment.center,
+          child: flexChild,
+        );
+        break;
+    }
+
+    return Column(children: <Widget>[
+      ButtonBar(
+        key: barKey,
+        alignment: alignment,
+        mainAxisSize: mainAxisSize,
+        textDirection: textDirection,
+        layoutBehavior: layoutBehavior,
+        overflowDirection: overflowDirection,
+        overflowButtonSpacing: overflowButtonSpacing,
+        children: <Widget>[
+          for (int i = 0; i < childSizes.length; i += 1) SizedBox.fromSize(
+            key: barChildKeys[i],
+            size: childSizes[i],
+          ),
+        ],
+      ),
+      flexChild,
+    ]);
+  }
+
+  @override
+  String toString({DiagnosticLevel minLevel = DiagnosticLevel.info}) =>
+      'FlexTestFrame(childSizes: $childSizes, '
+      'alignment: $alignment, '
+      'mainAxisSize: $mainAxisSize, '
+      'textDirection: $textDirection, '
+      'layoutBehavior: $layoutBehavior, '
+      'overflowDirection: $overflowDirection, '
+      'overflowButtonSpacing: $overflowButtonSpacing)';
+}
+
+
 void main() {
   testWidgets('ButtonBar default control smoketest', (WidgetTester tester) async {
     await tester.pumpWidget(
@@ -80,552 +232,6 @@ void main() {
       // Should be positioned on the left
       expect(tester.getRect(child).left, 8.0);   // padding
       expect(tester.getRect(child).right, 18.0); // padding + 10
-    });
-
-    testWidgets('consistent MainAxisAlignment dimensions', (WidgetTester tester) async {
-      Future<void> testAlignment(
-          MainAxisAlignment alignment,
-          bool rtl,
-          bool constrained,
-          double height,
-          List<Rect> rects,
-          ) async {
-        Widget buildRect(int i) {
-          final Rect rect = rects[i];
-          return SizedBox(
-            key: ValueKey<String>('box$i'),
-            width: rect.width,
-            height: rect.height,
-          );
-        }
-
-        await tester.pumpWidget(
-          SingleChildScrollView(
-            child: ListBody(
-              children: <Widget>[
-                Directionality(
-                  textDirection: rtl ? TextDirection.rtl : TextDirection.ltr,
-                  child: ButtonBar(
-                    key: const ValueKey<String>('buttonBar'),
-                    alignment: alignment,
-                    layoutBehavior: constrained ? ButtonBarLayoutBehavior.constrained : ButtonBarLayoutBehavior.padded,
-                    children: <Widget>[
-                      for (int i = 0; i < rects.length; i += 1) buildRect(i),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-
-        //print('await testAlignment($alignment, $rtl, $constrained, ${tester.getRect(find.byKey(const ValueKey<String>('buttonBar'))).height}, const <Rect>[');
-        expect(tester.getRect(find.byKey(const ValueKey<String>('buttonBar'))).height, height);
-        for (int i = 0; i < rects.length; i += 1) {
-          Rect expectedRect = rects[i];
-          Rect boxRect = tester.getRect(find.byKey(ValueKey<String>('box$i')));
-          expect(expectedRect, equals(boxRect));
-          //print('  Rect.fromLTRB(${boxRect.left}, ${boxRect.top}, ${boxRect.right}, ${boxRect.bottom}),');
-        }
-        //print(']);\n');
-      }
-
-      /*for (var a in MainAxisAlignment.values) {
-        await testAlignment(a, false, false, null, [
-          Rect.fromLTWH(0, 0, 10, 20),
-          Rect.fromLTWH(0, 0, 20, 10),
-          Rect.fromLTWH(0, 0, 30, 30),
-        ]);
-        await testAlignment(a, false, true, null, [
-          Rect.fromLTWH(0, 0, 10, 20),
-          Rect.fromLTWH(0, 0, 20, 10),
-          Rect.fromLTWH(0, 0, 30, 30),
-        ]);
-        await testAlignment(a, true, false, null, [
-          Rect.fromLTWH(0, 0, 10, 20),
-          Rect.fromLTWH(0, 0, 20, 10),
-          Rect.fromLTWH(0, 0, 30, 30),
-        ]);
-        await testAlignment(a, true, true, null, [
-          Rect.fromLTWH(0, 0, 10, 20),
-          Rect.fromLTWH(0, 0, 20, 10),
-          Rect.fromLTWH(0, 0, 30, 30),
-        ]);
-
-        await testAlignment(a, false, false, null, [
-          Rect.fromLTWH(0, 0, 200, 20),
-          Rect.fromLTWH(0, 0, 300, 10),
-          Rect.fromLTWH(0, 0, 400, 30),
-        ]);
-        await testAlignment(a, false, true, null, [
-          Rect.fromLTWH(0, 0, 200, 20),
-          Rect.fromLTWH(0, 0, 300, 10),
-          Rect.fromLTWH(0, 0, 400, 30),
-        ]);
-        await testAlignment(a, true, false, null, [
-          Rect.fromLTWH(0, 0, 200, 20),
-          Rect.fromLTWH(0, 0, 300, 10),
-          Rect.fromLTWH(0, 0, 400, 30),
-        ]);
-        await testAlignment(a, true, true, null, [
-          Rect.fromLTWH(0, 0, 200, 20),
-          Rect.fromLTWH(0, 0, 300, 10),
-          Rect.fromLTWH(0, 0, 400, 30),
-        ]);
-
-        await testAlignment(a, false, false, null, [
-          Rect.fromLTWH(0, 0, 200, 2),
-          Rect.fromLTWH(0, 0, 300, 2),
-          Rect.fromLTWH(0, 0, 400, 2),
-        ]);
-        await testAlignment(a, false, true, null, [
-          Rect.fromLTWH(0, 0, 200, 2),
-          Rect.fromLTWH(0, 0, 300, 2),
-          Rect.fromLTWH(0, 0, 400, 2),
-        ]);
-        await testAlignment(a, true, false, null, [
-          Rect.fromLTWH(0, 0, 200, 2),
-          Rect.fromLTWH(0, 0, 300, 2),
-          Rect.fromLTWH(0, 0, 400, 2),
-        ]);
-        await testAlignment(a, true, true, null, [
-          Rect.fromLTWH(0, 0, 200, 2),
-          Rect.fromLTWH(0, 0, 300, 2),
-          Rect.fromLTWH(0, 0, 400, 2),
-        ]);
-      }*/
-
-      await testAlignment(MainAxisAlignment.start, false, false, 46.0, const <Rect>[
-        Rect.fromLTRB(8.0, 13.0, 18.0, 33.0),
-        Rect.fromLTRB(26.0, 18.0, 46.0, 28.0),
-        Rect.fromLTRB(54.0, 8.0, 84.0, 38.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.start, false, true, 52.0, const <Rect>[
-        Rect.fromLTRB(8.0, 16.0, 18.0, 36.0),
-        Rect.fromLTRB(26.0, 21.0, 46.0, 31.0),
-        Rect.fromLTRB(54.0, 11.0, 84.0, 41.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.start, true, false, 46.0, const <Rect>[
-        Rect.fromLTRB(782.0, 13.0, 792.0, 33.0),
-        Rect.fromLTRB(754.0, 18.0, 774.0, 28.0),
-        Rect.fromLTRB(716.0, 8.0, 746.0, 38.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.start, true, true, 52.0, const <Rect>[
-        Rect.fromLTRB(782.0, 16.0, 792.0, 36.0),
-        Rect.fromLTRB(754.0, 21.0, 774.0, 31.0),
-        Rect.fromLTRB(716.0, 11.0, 746.0, 41.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.start, false, false, 76.0, const <Rect>[
-        Rect.fromLTRB(8.0, 8.0, 208.0, 28.0),
-        Rect.fromLTRB(8.0, 28.0, 308.0, 38.0),
-        Rect.fromLTRB(8.0, 38.0, 408.0, 68.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.start, false, true, 60.0, const <Rect>[
-        Rect.fromLTRB(8.0, 0.0, 208.0, 20.0),
-        Rect.fromLTRB(8.0, 20.0, 308.0, 30.0),
-        Rect.fromLTRB(8.0, 30.0, 408.0, 60.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.start, true, false, 76.0, const <Rect>[
-        Rect.fromLTRB(592.0, 8.0, 792.0, 28.0),
-        Rect.fromLTRB(492.0, 28.0, 792.0, 38.0),
-        Rect.fromLTRB(392.0, 38.0, 792.0, 68.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.start, true, true, 60.0, const <Rect>[
-        Rect.fromLTRB(592.0, 0.0, 792.0, 20.0),
-        Rect.fromLTRB(492.0, 20.0, 792.0, 30.0),
-        Rect.fromLTRB(392.0, 30.0, 792.0, 60.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.start, false, false, 22.0, const <Rect>[
-        Rect.fromLTRB(8.0, 8.0, 208.0, 10.0),
-        Rect.fromLTRB(8.0, 10.0, 308.0, 12.0),
-        Rect.fromLTRB(8.0, 12.0, 408.0, 14.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.start, false, true, 52.0, const <Rect>[
-        Rect.fromLTRB(8.0, 23.0, 208.0, 25.0),
-        Rect.fromLTRB(8.0, 25.0, 308.0, 27.0),
-        Rect.fromLTRB(8.0, 27.0, 408.0, 29.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.start, true, false, 22.0, const <Rect>[
-        Rect.fromLTRB(592.0, 8.0, 792.0, 10.0),
-        Rect.fromLTRB(492.0, 10.0, 792.0, 12.0),
-        Rect.fromLTRB(392.0, 12.0, 792.0, 14.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.start, true, true, 52.0, const <Rect>[
-        Rect.fromLTRB(592.0, 23.0, 792.0, 25.0),
-        Rect.fromLTRB(492.0, 25.0, 792.0, 27.0),
-        Rect.fromLTRB(392.0, 27.0, 792.0, 29.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.end, false, false, 46.0, const <Rect>[
-        Rect.fromLTRB(716.0, 13.0, 726.0, 33.0),
-        Rect.fromLTRB(734.0, 18.0, 754.0, 28.0),
-        Rect.fromLTRB(762.0, 8.0, 792.0, 38.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.end, false, true, 52.0, const <Rect>[
-        Rect.fromLTRB(716.0, 16.0, 726.0, 36.0),
-        Rect.fromLTRB(734.0, 21.0, 754.0, 31.0),
-        Rect.fromLTRB(762.0, 11.0, 792.0, 41.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.end, true, false, 46.0, const <Rect>[
-        Rect.fromLTRB(74.0, 13.0, 84.0, 33.0),
-        Rect.fromLTRB(46.0, 18.0, 66.0, 28.0),
-        Rect.fromLTRB(8.0, 8.0, 38.0, 38.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.end, true, true, 52.0, const <Rect>[
-        Rect.fromLTRB(74.0, 16.0, 84.0, 36.0),
-        Rect.fromLTRB(46.0, 21.0, 66.0, 31.0),
-        Rect.fromLTRB(8.0, 11.0, 38.0, 41.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.end, false, false, 76.0, const <Rect>[
-        Rect.fromLTRB(592.0, 8.0, 792.0, 28.0),
-        Rect.fromLTRB(492.0, 28.0, 792.0, 38.0),
-        Rect.fromLTRB(392.0, 38.0, 792.0, 68.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.end, false, true, 60.0, const <Rect>[
-        Rect.fromLTRB(592.0, 0.0, 792.0, 20.0),
-        Rect.fromLTRB(492.0, 20.0, 792.0, 30.0),
-        Rect.fromLTRB(392.0, 30.0, 792.0, 60.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.end, true, false, 76.0, const <Rect>[
-        Rect.fromLTRB(8.0, 8.0, 208.0, 28.0),
-        Rect.fromLTRB(8.0, 28.0, 308.0, 38.0),
-        Rect.fromLTRB(8.0, 38.0, 408.0, 68.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.end, true, true, 60.0, const <Rect>[
-        Rect.fromLTRB(8.0, 0.0, 208.0, 20.0),
-        Rect.fromLTRB(8.0, 20.0, 308.0, 30.0),
-        Rect.fromLTRB(8.0, 30.0, 408.0, 60.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.end, false, false, 22.0, const <Rect>[
-        Rect.fromLTRB(592.0, 8.0, 792.0, 10.0),
-        Rect.fromLTRB(492.0, 10.0, 792.0, 12.0),
-        Rect.fromLTRB(392.0, 12.0, 792.0, 14.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.end, false, true, 52.0, const <Rect>[
-        Rect.fromLTRB(592.0, 23.0, 792.0, 25.0),
-        Rect.fromLTRB(492.0, 25.0, 792.0, 27.0),
-        Rect.fromLTRB(392.0, 27.0, 792.0, 29.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.end, true, false, 22.0, const <Rect>[
-        Rect.fromLTRB(8.0, 8.0, 208.0, 10.0),
-        Rect.fromLTRB(8.0, 10.0, 308.0, 12.0),
-        Rect.fromLTRB(8.0, 12.0, 408.0, 14.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.end, true, true, 52.0, const <Rect>[
-        Rect.fromLTRB(8.0, 23.0, 208.0, 25.0),
-        Rect.fromLTRB(8.0, 25.0, 308.0, 27.0),
-        Rect.fromLTRB(8.0, 27.0, 408.0, 29.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.center, false, false, 46.0, const <Rect>[
-        Rect.fromLTRB(362.0, 13.0, 372.0, 33.0),
-        Rect.fromLTRB(380.0, 18.0, 400.0, 28.0),
-        Rect.fromLTRB(408.0, 8.0, 438.0, 38.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.center, false, true, 52.0, const <Rect>[
-        Rect.fromLTRB(362.0, 16.0, 372.0, 36.0),
-        Rect.fromLTRB(380.0, 21.0, 400.0, 31.0),
-        Rect.fromLTRB(408.0, 11.0, 438.0, 41.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.center, true, false, 46.0, const <Rect>[
-        Rect.fromLTRB(428.0, 13.0, 438.0, 33.0),
-        Rect.fromLTRB(400.0, 18.0, 420.0, 28.0),
-        Rect.fromLTRB(362.0, 8.0, 392.0, 38.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.center, true, true, 52.0, const <Rect>[
-        Rect.fromLTRB(428.0, 16.0, 438.0, 36.0),
-        Rect.fromLTRB(400.0, 21.0, 420.0, 31.0),
-        Rect.fromLTRB(362.0, 11.0, 392.0, 41.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.center, false, false, 76.0, const <Rect>[
-        Rect.fromLTRB(300.0, 8.0, 500.0, 28.0),
-        Rect.fromLTRB(250.0, 28.0, 550.0, 38.0),
-        Rect.fromLTRB(200.0, 38.0, 600.0, 68.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.center, false, true, 60.0, const <Rect>[
-        Rect.fromLTRB(300.0, 0.0, 500.0, 20.0),
-        Rect.fromLTRB(250.0, 20.0, 550.0, 30.0),
-        Rect.fromLTRB(200.0, 30.0, 600.0, 60.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.center, true, false, 76.0, const <Rect>[
-        Rect.fromLTRB(300.0, 8.0, 500.0, 28.0),
-        Rect.fromLTRB(250.0, 28.0, 550.0, 38.0),
-        Rect.fromLTRB(200.0, 38.0, 600.0, 68.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.center, true, true, 60.0, const <Rect>[
-        Rect.fromLTRB(300.0, 0.0, 500.0, 20.0),
-        Rect.fromLTRB(250.0, 20.0, 550.0, 30.0),
-        Rect.fromLTRB(200.0, 30.0, 600.0, 60.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.center, false, false, 22.0, const <Rect>[
-        Rect.fromLTRB(300.0, 8.0, 500.0, 10.0),
-        Rect.fromLTRB(250.0, 10.0, 550.0, 12.0),
-        Rect.fromLTRB(200.0, 12.0, 600.0, 14.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.center, false, true, 52.0, const <Rect>[
-        Rect.fromLTRB(300.0, 23.0, 500.0, 25.0),
-        Rect.fromLTRB(250.0, 25.0, 550.0, 27.0),
-        Rect.fromLTRB(200.0, 27.0, 600.0, 29.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.center, true, false, 22.0, const <Rect>[
-        Rect.fromLTRB(300.0, 8.0, 500.0, 10.0),
-        Rect.fromLTRB(250.0, 10.0, 550.0, 12.0),
-        Rect.fromLTRB(200.0, 12.0, 600.0, 14.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.center, true, true, 52.0, const <Rect>[
-        Rect.fromLTRB(300.0, 23.0, 500.0, 25.0),
-        Rect.fromLTRB(250.0, 25.0, 550.0, 27.0),
-        Rect.fromLTRB(200.0, 27.0, 600.0, 29.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.spaceBetween, false, false, 46.0, const <Rect>[
-        Rect.fromLTRB(8.0, 13.0, 18.0, 33.0),
-        Rect.fromLTRB(380.0, 18.0, 400.0, 28.0),
-        Rect.fromLTRB(762.0, 8.0, 792.0, 38.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.spaceBetween, false, true, 52.0, const <Rect>[
-        Rect.fromLTRB(8.0, 16.0, 18.0, 36.0),
-        Rect.fromLTRB(380.0, 21.0, 400.0, 31.0),
-        Rect.fromLTRB(762.0, 11.0, 792.0, 41.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.spaceBetween, true, false, 46.0, const <Rect>[
-        Rect.fromLTRB(782.0, 13.0, 792.0, 33.0),
-        Rect.fromLTRB(400.0, 18.0, 420.0, 28.0),
-        Rect.fromLTRB(8.0, 8.0, 38.0, 38.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.spaceBetween, true, true, 52.0, const <Rect>[
-        Rect.fromLTRB(782.0, 16.0, 792.0, 36.0),
-        Rect.fromLTRB(400.0, 21.0, 420.0, 31.0),
-        Rect.fromLTRB(8.0, 11.0, 38.0, 41.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.spaceBetween, false, false, 76.0, const <Rect>[
-        Rect.fromLTRB(8.0, 8.0, 208.0, 28.0),
-        Rect.fromLTRB(8.0, 28.0, 308.0, 38.0),
-        Rect.fromLTRB(8.0, 38.0, 408.0, 68.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.spaceBetween, false, true, 60.0, const <Rect>[
-        Rect.fromLTRB(8.0, 0.0, 208.0, 20.0),
-        Rect.fromLTRB(8.0, 20.0, 308.0, 30.0),
-        Rect.fromLTRB(8.0, 30.0, 408.0, 60.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.spaceBetween, true, false, 76.0, const <Rect>[
-        Rect.fromLTRB(592.0, 8.0, 792.0, 28.0),
-        Rect.fromLTRB(492.0, 28.0, 792.0, 38.0),
-        Rect.fromLTRB(392.0, 38.0, 792.0, 68.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.spaceBetween, true, true, 60.0, const <Rect>[
-        Rect.fromLTRB(592.0, 0.0, 792.0, 20.0),
-        Rect.fromLTRB(492.0, 20.0, 792.0, 30.0),
-        Rect.fromLTRB(392.0, 30.0, 792.0, 60.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.spaceBetween, false, false, 22.0, const <Rect>[
-        Rect.fromLTRB(8.0, 8.0, 208.0, 10.0),
-        Rect.fromLTRB(8.0, 10.0, 308.0, 12.0),
-        Rect.fromLTRB(8.0, 12.0, 408.0, 14.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.spaceBetween, false, true, 52.0, const <Rect>[
-        Rect.fromLTRB(8.0, 23.0, 208.0, 25.0),
-        Rect.fromLTRB(8.0, 25.0, 308.0, 27.0),
-        Rect.fromLTRB(8.0, 27.0, 408.0, 29.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.spaceBetween, true, false, 22.0, const <Rect>[
-        Rect.fromLTRB(592.0, 8.0, 792.0, 10.0),
-        Rect.fromLTRB(492.0, 10.0, 792.0, 12.0),
-        Rect.fromLTRB(392.0, 12.0, 792.0, 14.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.spaceBetween, true, true, 52.0, const <Rect>[
-        Rect.fromLTRB(592.0, 23.0, 792.0, 25.0),
-        Rect.fromLTRB(492.0, 25.0, 792.0, 27.0),
-        Rect.fromLTRB(392.0, 27.0, 792.0, 29.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.spaceAround, false, false, 46.0, const <Rect>[
-        Rect.fromLTRB(126.0, 13.0, 136.0, 33.0),
-        Rect.fromLTRB(380.0, 18.0, 400.0, 28.0),
-        Rect.fromLTRB(644.0, 8.0, 674.0, 38.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.spaceAround, false, true, 52.0, const <Rect>[
-        Rect.fromLTRB(126.0, 16.0, 136.0, 36.0),
-        Rect.fromLTRB(380.0, 21.0, 400.0, 31.0),
-        Rect.fromLTRB(644.0, 11.0, 674.0, 41.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.spaceAround, true, false, 46.0, const <Rect>[
-        Rect.fromLTRB(664.0, 13.0, 674.0, 33.0),
-        Rect.fromLTRB(400.0, 18.0, 420.0, 28.0),
-        Rect.fromLTRB(126.0, 8.0, 156.0, 38.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.spaceAround, true, true, 52.0, const <Rect>[
-        Rect.fromLTRB(664.0, 16.0, 674.0, 36.0),
-        Rect.fromLTRB(400.0, 21.0, 420.0, 31.0),
-        Rect.fromLTRB(126.0, 11.0, 156.0, 41.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.spaceAround, false, false, 76.0, const <Rect>[
-        Rect.fromLTRB(8.0, 8.0, 208.0, 28.0),
-        Rect.fromLTRB(8.0, 28.0, 308.0, 38.0),
-        Rect.fromLTRB(8.0, 38.0, 408.0, 68.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.spaceAround, false, true, 60.0, const <Rect>[
-        Rect.fromLTRB(8.0, 0.0, 208.0, 20.0),
-        Rect.fromLTRB(8.0, 20.0, 308.0, 30.0),
-        Rect.fromLTRB(8.0, 30.0, 408.0, 60.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.spaceAround, true, false, 76.0, const <Rect>[
-        Rect.fromLTRB(592.0, 8.0, 792.0, 28.0),
-        Rect.fromLTRB(492.0, 28.0, 792.0, 38.0),
-        Rect.fromLTRB(392.0, 38.0, 792.0, 68.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.spaceAround, true, true, 60.0, const <Rect>[
-        Rect.fromLTRB(592.0, 0.0, 792.0, 20.0),
-        Rect.fromLTRB(492.0, 20.0, 792.0, 30.0),
-        Rect.fromLTRB(392.0, 30.0, 792.0, 60.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.spaceAround, false, false, 22.0, const <Rect>[
-        Rect.fromLTRB(8.0, 8.0, 208.0, 10.0),
-        Rect.fromLTRB(8.0, 10.0, 308.0, 12.0),
-        Rect.fromLTRB(8.0, 12.0, 408.0, 14.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.spaceAround, false, true, 52.0, const <Rect>[
-        Rect.fromLTRB(8.0, 23.0, 208.0, 25.0),
-        Rect.fromLTRB(8.0, 25.0, 308.0, 27.0),
-        Rect.fromLTRB(8.0, 27.0, 408.0, 29.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.spaceAround, true, false, 22.0, const <Rect>[
-        Rect.fromLTRB(592.0, 8.0, 792.0, 10.0),
-        Rect.fromLTRB(492.0, 10.0, 792.0, 12.0),
-        Rect.fromLTRB(392.0, 12.0, 792.0, 14.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.spaceAround, true, true, 52.0, const <Rect>[
-        Rect.fromLTRB(592.0, 23.0, 792.0, 25.0),
-        Rect.fromLTRB(492.0, 25.0, 792.0, 27.0),
-        Rect.fromLTRB(392.0, 27.0, 792.0, 29.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.spaceEvenly, false, false, 46.0, const <Rect>[
-        Rect.fromLTRB(185.0, 13.0, 195.0, 33.0),
-        Rect.fromLTRB(380.0, 18.0, 400.0, 28.0),
-        Rect.fromLTRB(585.0, 8.0, 615.0, 38.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.spaceEvenly, false, true, 52.0, const <Rect>[
-        Rect.fromLTRB(185.0, 16.0, 195.0, 36.0),
-        Rect.fromLTRB(380.0, 21.0, 400.0, 31.0),
-        Rect.fromLTRB(585.0, 11.0, 615.0, 41.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.spaceEvenly, true, false, 46.0, const <Rect>[
-        Rect.fromLTRB(605.0, 13.0, 615.0, 33.0),
-        Rect.fromLTRB(400.0, 18.0, 420.0, 28.0),
-        Rect.fromLTRB(185.0, 8.0, 215.0, 38.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.spaceEvenly, true, true, 52.0, const <Rect>[
-        Rect.fromLTRB(605.0, 16.0, 615.0, 36.0),
-        Rect.fromLTRB(400.0, 21.0, 420.0, 31.0),
-        Rect.fromLTRB(185.0, 11.0, 215.0, 41.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.spaceEvenly, false, false, 76.0, const <Rect>[
-        Rect.fromLTRB(8.0, 8.0, 208.0, 28.0),
-        Rect.fromLTRB(8.0, 28.0, 308.0, 38.0),
-        Rect.fromLTRB(8.0, 38.0, 408.0, 68.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.spaceEvenly, false, true, 60.0, const <Rect>[
-        Rect.fromLTRB(8.0, 0.0, 208.0, 20.0),
-        Rect.fromLTRB(8.0, 20.0, 308.0, 30.0),
-        Rect.fromLTRB(8.0, 30.0, 408.0, 60.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.spaceEvenly, true, false, 76.0, const <Rect>[
-        Rect.fromLTRB(592.0, 8.0, 792.0, 28.0),
-        Rect.fromLTRB(492.0, 28.0, 792.0, 38.0),
-        Rect.fromLTRB(392.0, 38.0, 792.0, 68.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.spaceEvenly, true, true, 60.0, const <Rect>[
-        Rect.fromLTRB(592.0, 0.0, 792.0, 20.0),
-        Rect.fromLTRB(492.0, 20.0, 792.0, 30.0),
-        Rect.fromLTRB(392.0, 30.0, 792.0, 60.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.spaceEvenly, false, false, 22.0, const <Rect>[
-        Rect.fromLTRB(8.0, 8.0, 208.0, 10.0),
-        Rect.fromLTRB(8.0, 10.0, 308.0, 12.0),
-        Rect.fromLTRB(8.0, 12.0, 408.0, 14.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.spaceEvenly, false, true, 52.0, const <Rect>[
-        Rect.fromLTRB(8.0, 23.0, 208.0, 25.0),
-        Rect.fromLTRB(8.0, 25.0, 308.0, 27.0),
-        Rect.fromLTRB(8.0, 27.0, 408.0, 29.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.spaceEvenly, true, false, 22.0, const <Rect>[
-        Rect.fromLTRB(592.0, 8.0, 792.0, 10.0),
-        Rect.fromLTRB(492.0, 10.0, 792.0, 12.0),
-        Rect.fromLTRB(392.0, 12.0, 792.0, 14.0),
-      ]);
-
-      await testAlignment(MainAxisAlignment.spaceEvenly, true, true, 52.0, const <Rect>[
-        Rect.fromLTRB(592.0, 23.0, 792.0, 25.0),
-        Rect.fromLTRB(492.0, 25.0, 792.0, 27.0),
-        Rect.fromLTRB(392.0, 27.0, 792.0, 29.0),
-      ]);
     });
   });
 
@@ -1188,5 +794,106 @@ void main() {
 
     expect(renderButtonBar.debugNeedsLayout, isTrue);
     expect(renderButtonBar.constraints, isNull);
+  });
+
+
+  testWidgets('consistency with Flex layout', (WidgetTester tester) async {
+    final List<FlexTestFrame> testFrames = <FlexTestFrame>[];
+
+    testFrames.add(FlexTestFrame(
+      childSizes: const <Size>[],
+      alignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.max,
+      textDirection: TextDirection.ltr,
+      layoutBehavior: ButtonBarLayoutBehavior.constrained,
+      overflowDirection: VerticalDirection.down,
+      overflowButtonSpacing: 4.0,
+    ));
+
+    void boolPermutations(void Function(bool) fn) {
+      fn(false);
+      fn(true);
+    }
+
+    void addFrames(
+      bool smallWidth,
+      bool mainAxisMax,
+      bool reversedOverflow,
+      List<MainAxisAlignment> alignments,
+    ) {
+      boolPermutations((bool smallHeight) {
+        boolPermutations((bool rtl) {
+          boolPermutations((bool constrainedLayout) {
+            for (final MainAxisAlignment alignment in alignments) {
+              testFrames.add(FlexTestFrame(
+                childSizes: <Size>[
+                  Size(smallWidth ? 200 : 400, smallHeight ? 2 : 50),
+                  Size(smallWidth ? 100 : 200, smallHeight ? 2 : 150),
+                  Size(smallWidth ? 20 : 300, smallHeight ? 2 : 25),
+                ],
+                alignment: alignment,
+                mainAxisSize: mainAxisMax ? MainAxisSize.max : MainAxisSize.min,
+                textDirection: rtl ? TextDirection.rtl : TextDirection.ltr,
+                layoutBehavior: constrainedLayout ? ButtonBarLayoutBehavior.constrained : ButtonBarLayoutBehavior.padded,
+                overflowDirection: reversedOverflow ? VerticalDirection.up : VerticalDirection.down,
+                overflowButtonSpacing: 4.0,
+              ));
+            }
+          });
+        });
+      });
+    }
+
+    boolPermutations((bool reversedOverflow) {
+      addFrames(false, false, reversedOverflow, const <MainAxisAlignment>[
+        MainAxisAlignment.start,
+        MainAxisAlignment.center,
+        MainAxisAlignment.end,
+      ]);
+    });
+
+    boolPermutations((bool mainAxisMax) {
+      addFrames(true, mainAxisMax, false, MainAxisAlignment.values);
+    });
+
+    testFrames.add(FlexTestFrame(
+      childSizes: const <Size>[
+        Size(10, 10),
+      ],
+      alignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.max,
+      textDirection: TextDirection.ltr,
+      layoutBehavior: ButtonBarLayoutBehavior.padded,
+      overflowDirection: VerticalDirection.down,
+      overflowButtonSpacing: 0.0,
+    ));
+
+    await tester.pumpWidget(
+      SingleChildScrollView(
+        child: ListBody(
+          children: testFrames,
+        ),
+      ),
+    );
+
+    Rect getKeyRect(GlobalKey key) {
+      final RenderBox box = key.currentContext.findRenderObject() as RenderBox;
+      return Rect.fromPoints(
+        box.localToGlobal(Offset.zero),
+        box.localToGlobal(box.size.bottomRight(Offset.zero)),
+      );
+    }
+
+    for (final FlexTestFrame testFrame in testFrames) {
+      final Rect barRect = getKeyRect(testFrame.barKey);
+      final Rect flexRect = getKeyRect(testFrame.flexKey);
+      expect(barRect.size, equals(flexRect.size), reason: 'testFrame = $testFrame');
+
+      for (int i = 0; i < testFrame.childSizes.length; i += 1) {
+        final Rect barChildRect = getKeyRect(testFrame.barChildKeys[i]).shift(-barRect.topLeft);
+        final Rect flexChildRect = getKeyRect(testFrame.flexChildKeys[i]).shift(-flexRect.topLeft);
+        expect(barChildRect, equals(flexChildRect), reason: 'child = $i; testFrame = $testFrame');
+      }
+    }
   });
 }

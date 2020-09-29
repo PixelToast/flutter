@@ -27,6 +27,9 @@ enum OverflowBarAlignment {
 
   /// Each child is horizontally centered.
   center,
+
+  /// Each child consumes the maximum intrinsic width of the OverflowBar.
+  stretch,
 }
 
 /// A widget that lays out its [children] in a row unless they
@@ -105,6 +108,7 @@ class OverflowBar extends MultiChildRenderObjectWidget {
     Key? key,
     this.spacing = 0.0,
     this.overflowSpacing = 0.0,
+    this.alignment = MainAxisAlignment.start,
     this.overflowAlignment = OverflowBarAlignment.start,
     this.overflowDirection = VerticalDirection.down,
     this.textDirection,
@@ -140,6 +144,25 @@ class OverflowBar extends MultiChildRenderObjectWidget {
   ///    for the default horizontal layout.
   final double overflowSpacing;
 
+  /// The horizontal alignment of the [children] within the horizontal
+  /// "non-overflow" layout.
+  ///
+  /// This parameter is only used if the horizontal layout would not exceed the
+  /// maximum width of this bar.
+  ///
+  /// Defaults to [MainAxisAlignment.start].
+  ///
+  /// See also:
+  ///
+  ///  * [MainAxisAlignment], which describes how children will be aligned
+  ///    using this parameter.
+  ///  * [overflowAlignment], which defines the horizontal alignment
+  ///    of the children within the vertical "overflow" layout.
+  ///  * [overflowDirection], which defines the order that the
+  ///    [OverflowBar]'s children appear in, if the horizontal layout
+  ///    overflows.
+  final MainAxisAlignment alignment;
+
   /// The horizontal alignment of the [children] within the vertical
   /// "overflow" layout.
   ///
@@ -164,6 +187,8 @@ class OverflowBar extends MultiChildRenderObjectWidget {
   ///
   /// See also:
   ///
+  ///  * [alignment], which defines the horizontal alignment of each child
+  ///    within the non overflowing layout.
   ///  * [overflowDirection], which defines the order that the
   ///    [OverflowBar]'s children appear in, if the horizontal layout
   ///    overflows.
@@ -206,6 +231,8 @@ class OverflowBar extends MultiChildRenderObjectWidget {
   ///
   /// See also:
   ///
+  ///  * [alignment], which defines the horizontal alignment of each child
+  ///    within the non-overflowing layout.
   ///  * [overflowDirection], which defines the order that the
   ///    [OverflowBar]'s children appear in, if the horizontal layout
   ///    overflows.
@@ -245,6 +272,7 @@ class OverflowBar extends MultiChildRenderObjectWidget {
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
     properties.add(DoubleProperty('spacing', spacing, defaultValue: 0));
+    properties.add(EnumProperty<MainAxisAlignment>('alignment', alignment, defaultValue: MainAxisAlignment.start));
     properties.add(DoubleProperty('overflowSpacing', overflowSpacing, defaultValue: 0));
     properties.add(EnumProperty<OverflowBarAlignment>('overflowAlignment', overflowAlignment, defaultValue: OverflowBarAlignment.start));
     properties.add(EnumProperty<VerticalDirection>('overflowDirection', overflowDirection, defaultValue: VerticalDirection.down));
@@ -260,6 +288,7 @@ class _RenderOverflowBar extends RenderBox
   _RenderOverflowBar({
     List<RenderBox>? children,
     double spacing = 0.0,
+    MainAxisAlignment alignment = MainAxisAlignment.start,
     double overflowSpacing = 0.0,
     OverflowBarAlignment overflowAlignment = OverflowBarAlignment.start,
     VerticalDirection overflowDirection = VerticalDirection.down,
@@ -267,10 +296,12 @@ class _RenderOverflowBar extends RenderBox
     Clip clipBehavior = Clip.none,
   }) : assert(spacing != null),
        assert(overflowSpacing != null),
+       assert(alignment != null),
        assert(overflowAlignment != null),
        assert(textDirection != null),
        assert(clipBehavior != null),
        _spacing = spacing,
+       _alignment = alignment,
        _overflowSpacing = overflowSpacing,
        _overflowAlignment = overflowAlignment,
        _overflowDirection = overflowDirection,
@@ -286,6 +317,16 @@ class _RenderOverflowBar extends RenderBox
     if (_spacing == value)
       return;
     _spacing = value;
+    markNeedsLayout();
+  }
+
+  MainAxisAlignment get alignment => _alignment;
+  MainAxisAlignment _alignment;
+  set alignment (MainAxisAlignment value) {
+    assert(value != null);
+    if (_alignment == value)
+      return;
+    _alignment = value;
     markNeedsLayout();
   }
 
@@ -444,7 +485,22 @@ class _RenderOverflowBar extends RenderBox
       return;
     }
 
-    final BoxConstraints childConstraints = constraints.loosen();
+    BoxConstraints childConstraints = BoxConstraints(
+      maxWidth: constraints.maxWidth,
+    );
+
+    final bool stretchedOverflow = overflowAlignment == OverflowBarAlignment.stretch;
+    bool overflowed = false;
+    if (stretchedOverflow) {
+      final double width = getMaxIntrinsicWidth(0);
+      if (width > constraints.maxWidth) {
+        overflowed = true;
+        childConstraints = BoxConstraints.tightFor(
+          width: math.max(width, constraints.minWidth),
+        );
+      }
+    }
+
     double childrenWidth = 0;
     double maxChildHeight = 0;
     double maxChildWidth = 0;
@@ -460,14 +516,18 @@ class _RenderOverflowBar extends RenderBox
     final bool rtl = textDirection == TextDirection.rtl;
     final double actualWidth = childrenWidth + spacing * (childCount - 1);
 
-    if (actualWidth > constraints.maxWidth) {
+    if (!stretchedOverflow) {
+      overflowed = actualWidth > constraints.maxWidth;
+    }
+
+    if (overflowed) {
       // Overflow vertical layout
       child = overflowDirection == VerticalDirection.down ? firstChild : lastChild;
       RenderBox? nextChild() => overflowDirection == VerticalDirection.down ? childAfter(child!) : childBefore(child!);
       double y = 0;
       while (child != null) {
         final _OverflowBarParentData childParentData = child.parentData! as _OverflowBarParentData;
-        double x = 0;
+        double x;
         switch (overflowAlignment) {
           case OverflowBarAlignment.start:
             x = rtl ? constraints.maxWidth - child.size.width : 0;
@@ -478,8 +538,10 @@ class _RenderOverflowBar extends RenderBox
           case OverflowBarAlignment.end:
             x = rtl ? 0 : constraints.maxWidth - child.size.width;
             break;
+          case OverflowBarAlignment.stretch:
+            x = 0;
+            break;
         }
-        assert(x != null);
         childParentData.offset = Offset(x, y);
         y += child.size.height + overflowSpacing;
         child = nextChild();
@@ -514,6 +576,7 @@ class _RenderOverflowBar extends RenderBox
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
     properties.add(DoubleProperty('spacing', spacing, defaultValue: 0));
+    properties.add(EnumProperty<MainAxisAlignment>('alignment', alignment, defaultValue: MainAxisAlignment.start));
     properties.add(DoubleProperty('overflowSpacing', overflowSpacing, defaultValue: 0));
     properties.add(EnumProperty<OverflowBarAlignment>('overflowAlignment', overflowAlignment, defaultValue: OverflowBarAlignment.start));
     properties.add(EnumProperty<VerticalDirection>('overflowDirection', overflowDirection, defaultValue: VerticalDirection.down));

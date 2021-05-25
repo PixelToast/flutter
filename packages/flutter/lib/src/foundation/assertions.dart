@@ -1189,7 +1189,7 @@ class DiagnosticsStackTrace extends DiagnosticsBlock {
     properties: _applyStackFilter(stack, stackFilter),
     style: DiagnosticsTreeStyle.flat,
     showSeparator: showSeparator,
-    allowTruncate: true,
+    allowTruncate: false,
   );
 
   /// Creates a diagnostic describing a single frame from a StackTrace.
@@ -1218,9 +1218,6 @@ class DiagnosticsStackTrace extends DiagnosticsBlock {
   static DiagnosticsNode _createStackFrame(String frame) {
     return DiagnosticsNode.message(frame, allowWrap: false);
   }
-
-  @override
-  bool get allowTruncate => false;
 }
 
 class _FlutterErrorDetailsNode extends DiagnosticableNode<FlutterErrorDetails> {
